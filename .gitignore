@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Model files (large files)
+*.pkl
+*.h5
+*.model
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Data files (large)
+big_diabetes.csv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Reports
+*.pdf
+
+# Images (optional - comment out if you want to include them)
+# *.png
+# *.jpg
+
+# Temporary files
+*.tmp
+*.bak

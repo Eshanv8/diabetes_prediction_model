@@ -58,22 +58,56 @@ class AdvancedDiabetesPredictorGUI:
             'HvyAlcoholConsump': 'Heavy Alcohol Consumption',
             'AnyHealthcare': 'Have Health Insurance',
             'NoDocbcCost': 'Could not see doctor due to cost',
-            'GenHlth': 'General Health (1=Excellent, 5=Poor)',
-            'MentHlth': 'Mental Health Issues (days in month)',
-            'PhysHlth': 'Physical Health Issues (days in month)',
+            'GenHlth': 'General Health',
+            'MentHlth': 'Mental Health Issues (days/month 0-30)',
+            'PhysHlth': 'Physical Health Issues (days/month 0-30)',
             'DiffWalk': 'Difficulty Walking',
-            'Sex': 'Sex (0=Female, 1=Male)',
-            'Age': 'Age Category (1-13)',
-            'Education': 'Education Level (1-6)',
-            'Income': 'Income Level (1-8)'
+            'Sex': 'Gender',
+            'Age': 'Age Group',
+            'Education': 'Education Level',
+            'Income': 'Annual Income (Per Year)',
+            'Height': 'Height (meters)',
+            'Weight': 'Weight (kg)'
         }
         
         self.binary_fields = ['HighBP', 'HighChol', 'CholCheck', 'Smoker', 'Stroke', 
                              'HeartDiseaseorAttack', 'PhysActivity', 'Fruits', 'Veggies',
-                             'HvyAlcoholConsump', 'AnyHealthcare', 'NoDocbcCost', 'DiffWalk', 'Sex']
+                             'HvyAlcoholConsump', 'AnyHealthcare', 'NoDocbcCost', 'DiffWalk']
+        
+        self.dropdown_fields = {
+            'Sex': ['Female', 'Male'],
+            'Age': ['18-24', '25-29', '30-34', '35-39', '40-44', '45-49', 
+                   '50-54', '55-59', '60-64', '65-69', '70-74', '75-79', '80+'],
+            'Education': ['Never attended school', 'Elementary', 'Some high school', 
+                         'High school graduate', 'Some college', 'College graduate'],
+            'Income': ['Less than Rs.1,000,000/year', 'Rs.1,000,000-1,500,000/year', 
+                      'Rs.1,500,000-2,000,000/year', 'Rs.2,000,000-2,500,000/year', 
+                      'Rs.2,500,000-3,500,000/year', 'Rs.3,500,000-5,000,000/year', 
+                      'Rs.5,000,000-7,500,000/year', 'Rs.7,500,000 or more/year'],
+            'GenHlth': ['Excellent', 'Very Good', 'Good', 'Fair', 'Poor']
+        }
+        
+        self.bmi_fields = ['Height', 'Weight']
         
         self.current_patient_name = tk.StringVar()
         self.dark_mode = False
+        
+        self.colors = {
+            'light': {
+                'bg': '#ecf0f1',
+                'header': '#2c3e50',
+                'header_text': 'white',
+                'frame_bg': '#ecf0f1',
+                'label_fg': '#34495e',
+            },
+            'dark': {
+                'bg': '#1e1e1e',
+                'header': '#0d1117',
+                'header_text': '#c9d1d9',
+                'frame_bg': '#2d2d2d',
+                'label_fg': '#c9d1d9',
+            }
+        }
         
         self.create_menu()
         self.create_widgets()
@@ -166,7 +200,9 @@ class AdvancedDiabetesPredictorGUI:
                                      fg='#2c3e50', padx=15, pady=10)
         section_frame.pack(fill='x', padx=10, pady=10)
         
-        for feature in self.feature_names:
+        fields_to_show = ['Height', 'Weight'] + [f for f in self.feature_names if f != 'BMI']
+        
+        for feature in fields_to_show:
             frame = tk.Frame(section_frame, bg='#ecf0f1')
             frame.pack(fill='x', pady=6)
             
@@ -187,6 +223,28 @@ class AdvancedDiabetesPredictorGUI:
                 no_rb.pack(side='right', padx=5)
                 yes_rb.pack(side='right', padx=5)
                 self.entries[feature] = var
+            elif feature in self.dropdown_fields:
+                var = tk.StringVar(value=self.dropdown_fields[feature][0])
+                dropdown = ttk.Combobox(frame, textvariable=var, 
+                                       values=self.dropdown_fields[feature],
+                                       font=("Arial", 9), width=18, state='readonly')
+                dropdown.pack(side='right', padx=5)
+                self.entries[feature] = var
+            elif feature in self.bmi_fields:
+                entry_frame = tk.Frame(frame, bg='white', bd=1, relief='solid')
+                entry_frame.pack(side='right')
+                if feature == 'Height':
+                    entry = tk.Spinbox(entry_frame, from_=1.0, to=2.5, increment=0.01,
+                                      font=("Arial", 10), width=10, bd=0, format="%.2f")
+                    entry.delete(0, tk.END)
+                    entry.insert(0, "1.70")
+                else:
+                    entry = tk.Spinbox(entry_frame, from_=30, to=200, increment=1,
+                                      font=("Arial", 10), width=10, bd=0)
+                    entry.delete(0, tk.END)
+                    entry.insert(0, "70")
+                entry.pack(padx=2, pady=2)
+                self.entries[feature] = entry
             else:
                 entry_frame = tk.Frame(frame, bg='white', bd=1, relief='solid')
                 entry_frame.pack(side='right')
@@ -242,10 +300,19 @@ class AdvancedDiabetesPredictorGUI:
     
     def predict(self):
         try:
+            height = float(self.entries['Height'].get())
+            weight = float(self.entries['Weight'].get())
+            bmi = weight / (height * height)
+            
             input_values = []
             for feature in self.feature_names:
-                if feature in self.binary_fields:
+                if feature == 'BMI':
+                    value = bmi
+                elif feature in self.binary_fields:
                     value = 1 if self.entries[feature].get() == "Yes" else 0
+                elif feature in self.dropdown_fields:
+                    selection = self.entries[feature].get()
+                    value = self.dropdown_fields[feature].index(selection) + 1 if feature != 'Sex' else self.dropdown_fields[feature].index(selection)
                 else:
                     value = float(self.entries[feature].get())
                 input_values.append(value)
@@ -272,7 +339,7 @@ class AdvancedDiabetesPredictorGUI:
                 tk.Label(result_box, text="⚠️", font=("Arial", 35), bg='#fadbd8', fg='#e74c3c').pack(pady=5)
                 tk.Label(result_box, text="HIGH RISK OF DIABETES", font=("Arial", 14, "bold"), 
                         bg='#fadbd8', fg='#c0392b').pack()
-                tk.Label(result_box, text=f"Risk Probability: {risk_prob:.1f}%", font=("Arial", 12), 
+                tk.Label(result_box, text=f"BMI: {bmi:.1f} | Risk: {risk_prob:.1f}%", font=("Arial", 11), 
                         bg='#fadbd8', fg='#922b21').pack(pady=5)
                 tk.Label(result_box, text="Recommendation: Consult healthcare provider", 
                         font=("Arial", 9, "italic"), bg='#fadbd8', fg='#6e2c00', wraplength=350).pack(pady=5)
@@ -285,7 +352,7 @@ class AdvancedDiabetesPredictorGUI:
                 tk.Label(result_box, text="✅", font=("Arial", 35), bg='#d5f4e6', fg='#27ae60').pack(pady=5)
                 tk.Label(result_box, text="LOW RISK - Good Health", font=("Arial", 14, "bold"), 
                         bg='#d5f4e6', fg='#1e8449').pack()
-                tk.Label(result_box, text=f"Confidence: {healthy_prob:.1f}%", font=("Arial", 12), 
+                tk.Label(result_box, text=f"BMI: {bmi:.1f} | Confidence: {healthy_prob:.1f}%", font=("Arial", 11), 
                         bg='#d5f4e6', fg='#186a3b').pack(pady=5)
                 tk.Label(result_box, text="Recommendation: Maintain healthy lifestyle", 
                         font=("Arial", 9, "italic"), bg='#d5f4e6', fg='#0e4f2e', wraplength=350).pack(pady=5)
@@ -312,8 +379,20 @@ class AdvancedDiabetesPredictorGUI:
                shadow=True, startangle=90)
         ax1.set_title('Risk Distribution')
         
+        importances = None
         if hasattr(self.model, 'feature_importances_'):
             importances = pd.Series(self.model.feature_importances_, index=self.feature_names)
+        elif hasattr(self.model, 'estimators_'):
+            avg_importances = np.zeros(len(self.feature_names))
+            count = 0
+            for estimator in self.model.estimators_:
+                if hasattr(estimator, 'feature_importances_'):
+                    avg_importances += estimator.feature_importances_
+                    count += 1
+            if count > 0:
+                importances = pd.Series(avg_importances / count, index=self.feature_names)
+        
+        if importances is not None:
             top_5 = importances.nlargest(5)
             ax2.barh(range(len(top_5)), top_5.values, color='steelblue')
             ax2.set_yticks(range(len(top_5)))
@@ -439,8 +518,11 @@ class AdvancedDiabetesPredictorGUI:
             messagebox.showwarning("Warning", "Please make a prediction first!")
             return
         
-        file_path = filedialog.asksaveasfilename(defaultextension=".pdf",
-                                                filetypes=[("PDF files", "*.pdf")])
+        default_name = f"diabetes_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            initialfile=default_name,
+            filetypes=[("PDF files", "*.pdf")])
         if not file_path:
             return
         
@@ -479,7 +561,7 @@ class AdvancedDiabetesPredictorGUI:
             c.drawString(inch, y, f"Model Accuracy: {self.model_info.get('accuracy', 0)*100:.2f}%")
             
             c.save()
-            messagebox.showinfo("Success", f"PDF exported to: {file_path}")
+            messagebox.showinfo("Success", f"PDF exported successfully!\n\nSaved to:\n{file_path}")
             
         except Exception as e:
             messagebox.showerror("Error", f"PDF export failed: {str(e)}")
@@ -507,35 +589,77 @@ class AdvancedDiabetesPredictorGUI:
                     font=("Arial", 12)).pack(expand=True)
     
     def show_feature_importance(self):
-        if not hasattr(self.model, 'feature_importances_'):
-            messagebox.showinfo("Info", "Feature importance not available for this model type.")
-            return
-        
         imp_window = tk.Toplevel(self.root)
         imp_window.title("Feature Importance Analysis")
         imp_window.geometry("700x500")
         
         fig, ax = plt.subplots(figsize=(8, 6))
-        importances = pd.Series(self.model.feature_importances_, index=self.feature_names)
-        importances_sorted = importances.sort_values(ascending=True)
         
-        colors = plt.cm.viridis(np.linspace(0, 1, len(importances_sorted)))
-        importances_sorted.plot(kind='barh', ax=ax, color=colors)
-        ax.set_xlabel('Importance Score', fontsize=12)
-        ax.set_title('Feature Importance for Diabetes Prediction', fontsize=14, fontweight='bold')
-        ax.set_ylabel('Features', fontsize=12)
-        plt.tight_layout()
+        importances = None
         
-        canvas = FigureCanvasTkAgg(fig, master=imp_window)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill='both', expand=True, padx=10, pady=10)
+        if hasattr(self.model, 'feature_importances_'):
+            importances = pd.Series(self.model.feature_importances_, index=self.feature_names)
+        elif hasattr(self.model, 'estimators_'):
+            avg_importances = np.zeros(len(self.feature_names))
+            count = 0
+            for estimator in self.model.estimators_:
+                if hasattr(estimator, 'feature_importances_'):
+                    avg_importances += estimator.feature_importances_
+                    count += 1
+            if count > 0:
+                importances = pd.Series(avg_importances / count, index=self.feature_names)
+        
+        if importances is not None:
+            importances_sorted = importances.sort_values(ascending=True)
+            
+            colors = plt.cm.viridis(np.linspace(0, 1, len(importances_sorted)))
+            importances_sorted.plot(kind='barh', ax=ax, color=colors)
+            ax.set_xlabel('Importance Score', fontsize=12)
+            ax.set_title('Feature Importance for Diabetes Prediction', fontsize=14, fontweight='bold')
+            ax.set_ylabel('Features', fontsize=12)
+            plt.tight_layout()
+            
+            canvas = FigureCanvasTkAgg(fig, master=imp_window)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill='both', expand=True, padx=10, pady=10)
+        else:
+            tk.Label(imp_window, text="Feature importance not available for this model type.\n\nTry using Random Forest or Gradient Boosting model.",
+                    font=("Arial", 12), wraplength=600, justify='center').pack(expand=True, pady=50)
+            plt.close(fig)
     
     def toggle_dark_mode(self):
         self.dark_mode = not self.dark_mode
-        if self.dark_mode:
-            messagebox.showinfo("Dark Mode", "Dark mode will be implemented in the next version!")
-        else:
-            messagebox.showinfo("Light Mode", "Light mode is active.")
+        theme = self.colors['dark'] if self.dark_mode else self.colors['light']
+        
+        self.root.configure(bg=theme['bg'])
+        
+        for widget in self.root.winfo_children():
+            self.apply_theme_recursive(widget, theme)
+        
+        mode_name = "Dark Mode" if self.dark_mode else "Light Mode"
+        messagebox.showinfo("Theme Changed", f"{mode_name} activated! 🎨")
+    
+    def apply_theme_recursive(self, widget, theme):
+        try:
+            widget_type = widget.winfo_class()
+            
+            if widget_type in ['Frame', 'LabelFrame']:
+                widget.configure(bg=theme['frame_bg'])
+                if widget_type == 'LabelFrame':
+                    widget.configure(fg=theme['label_fg'])
+            elif widget_type == 'Label':
+                if 'header' not in str(widget):
+                    widget.configure(bg=theme['frame_bg'], fg=theme['label_fg'])
+            elif widget_type == 'Button':
+                pass
+            elif widget_type == 'Radiobutton':
+                widget.configure(bg=theme['frame_bg'], fg=theme['label_fg'], 
+                               activebackground=theme['frame_bg'], selectcolor=theme['frame_bg'])
+            
+            for child in widget.winfo_children():
+                self.apply_theme_recursive(child, theme)
+        except:
+            pass
     
     def show_about(self):
         about_text = f"""
@@ -563,6 +687,14 @@ Features:
         for feature, widget in self.entries.items():
             if feature in self.binary_fields:
                 widget.set("No")
+            elif feature in self.dropdown_fields:
+                widget.set(self.dropdown_fields[feature][0])
+            elif feature == 'Height':
+                widget.delete(0, tk.END)
+                widget.insert(0, "1.70")
+            elif feature == 'Weight':
+                widget.delete(0, tk.END)
+                widget.insert(0, "70")
             else:
                 widget.delete(0, tk.END)
                 widget.insert(0, "0")
